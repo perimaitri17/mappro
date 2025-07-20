@@ -737,6 +737,475 @@
                 }
             }
         </script>
+         <script> 
+    // Indegene AI Assistant - GTM Compatible Version
+(function() {
+    'use strict';
+    
+    // Configuration
+    var PROXY_URL = 'https://script.google.com/macros/s/AKfycbxVCb-fX-aSmMWsaM8TWqPERCCZDPn2r29TZ5hzs-pokJMmgXPs7-PoJafbCuuGWehOxw/exec'; // <--- IMPORTANT: Replace with your deployed Apps Script Web App URL
+    var WEBSITE_CONTENT_LIMIT = 3000; // Limit website content to send to API
+
+    var websiteContent = '';
+    var chatHistory = [];
+    var isOpen = false;
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeChatbot);
+    } else {
+        initializeChatbot();
+    }
+    
+    function initializeChatbot() {
+        createChatbotHTML();
+        scrapeWebsiteContent();
+        attachEventListeners();
+    }
+    
+    function createChatbotHTML() {
+        // Create chatbot container
+        var chatbotContainer = document.createElement('div');
+        chatbotContainer.id = 'indegene-chatbot';
+        chatbotContainer.innerHTML = [
+            '<div id="chatbot-toggle" style="',
+                'position: fixed;',
+                'bottom: 20px;',
+                'right: 20px;',
+                'width: 60px;',
+                'height: 60px;',
+                'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);',
+                'border-radius: 50%;',
+                'cursor: pointer;',
+                'box-shadow: 0 4px 20px rgba(0,0,0,0.3);',
+                'display: flex;',
+                'align-items: center;',
+                'justify-content: center;',
+                'z-index: 9999;',
+                'transition: all 0.3s ease;',
+            '">',
+                '<svg width="24" height="24" fill="white" viewBox="0 0 24 24">',
+                    '<path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>',
+                '</svg>',
+            '</div>',
+            '<div id="chatbot-window" style="',
+                'position: fixed;',
+                'bottom: 90px;',
+                'right: 20px;',
+                'width: 400px;',
+                'height: 500px;',
+                'background: white;',
+                'border-radius: 12px;',
+                'box-shadow: 0 8px 30px rgba(0,0,0,0.2);',
+                'z-index: 9998;',
+                'display: none;',
+                'flex-direction: column;',
+                'overflow: hidden;',
+                'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
+            '">',
+                '<div id="chatbot-header" style="',
+                    'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);',
+                    'color: white;',
+                    'padding: 15px;',
+                    'display: flex;',
+                    'justify-content: space-between;',
+                    'align-items: center;',
+                '">',
+                    '<div>',
+                        '<h3 style="margin: 0; font-size: 16px;">Indegene AI Assistant</h3>',
+                        '<p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.9;">Ask me anything about this website</p>',
+                    '</div>',
+                    '<div>',
+                        '<button id="chatbot-back" style="',
+                            'background: rgba(255,255,255,0.2);',
+                            'border: none;',
+                            'color: white;',
+                            'padding: 5px 10px;',
+                            'border-radius: 4px;',
+                            'cursor: pointer;',
+                            'font-size: 12px;',
+                            'margin-right: 10px;',
+                        '">← Back</button>',
+                        '<button id="chatbot-close" style="',
+                            'background: rgba(255,255,255,0.2);',
+                            'border: none;',
+                            'color: white;',
+                            'padding: 5px 8px;',
+                            'border-radius: 4px;',
+                            'cursor: pointer;',
+                            'font-size: 16px;',
+                        '">×</button>',
+                    '</div>',
+                '</div>',
+                '<div id="chatbot-messages" style="',
+                    'flex: 1;',
+                    'overflow-y: auto;',
+                    'padding: 15px;',
+                    'background: #f8f9fa;',
+                '">',
+                    '<div class="message assistant">',
+                        '<div style="',
+                            'background: white;',
+                            'padding: 10px 12px;',
+                            'border-radius: 12px;',
+                            'max-width: 80%;',
+                            'margin-bottom: 10px;',
+                            'box-shadow: 0 1px 3px rgba(0,0,0,0.1);',
+                            'font-size: 14px;',
+                            'line-height: 1.4;',
+                        '">',
+                            '👋 Hello! I\'m the Indegene AI Assistant. I can help you find information from this website. What would you like to know?',
+                        '</div>',
+                    '</div>',
+                '</div>',
+                '<div id="chatbot-input-container" style="',
+                    'padding: 15px;',
+                    'background: white;',
+                    'border-top: 1px solid #e1e5e9;',
+                    'display: flex;',
+                    'gap: 10px;',
+                '">',
+                    '<input type="text" id="chatbot-input" placeholder="Type your question..." style="',
+                        'flex: 1;',
+                        'padding: 10px 12px;',
+                        'border: 1px solid #e1e5e9;',
+                        'border-radius: 20px;',
+                        'font-size: 14px;',
+                        'outline: none;',
+                    '">',
+                    '<button id="chatbot-send" style="',
+                        'background: #667eea;',
+                        'color: white;',
+                        'border: none;',
+                        'padding: 10px 16px;',
+                        'border-radius: 20px;',
+                        'cursor: pointer;',
+                        'font-size: 14px;',
+                        'font-weight: 600;',
+                    '">Send</button>',
+                '</div>',
+            '</div>'
+        ].join('');
+        
+        document.body.appendChild(chatbotContainer);
+    }
+    
+    function attachEventListeners() {
+        // Toggle chatbot
+        document.getElementById('chatbot-toggle').addEventListener('click', function() {
+            toggleChatbot();
+        });
+        
+        // Close chatbot
+        document.getElementById('chatbot-close').addEventListener('click', function() {
+            closeChatbot();
+        });
+        
+        // Back button
+        document.getElementById('chatbot-back').addEventListener('click', function() {
+            goBack();
+        });
+        
+        // Send message
+        document.getElementById('chatbot-send').addEventListener('click', function() {
+            sendMessage();
+        });
+        
+        // Enter key
+        document.getElementById('chatbot-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    }
+    
+    function toggleChatbot() {
+        var window = document.getElementById('chatbot-window');
+        if (isOpen) {
+            window.style.display = 'none';
+            isOpen = false;
+        } else {
+            window.style.display = 'flex';
+            isOpen = true;
+        }
+    }
+    
+    function closeChatbot() {
+        document.getElementById('chatbot-window').style.display = 'none';
+        isOpen = false;
+    }
+    
+    function goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = '/';
+        }
+    }
+    
+    function scrapeWebsiteContent() {
+        try {
+            var title = document.title || '';
+            var metaDescription = '';
+            var metaDescElement = document.querySelector('meta[name="description"]');
+            if (metaDescElement) {
+                metaDescription = metaDescElement.getAttribute('content') || '';
+            }
+            
+            var contentSelectors = [
+                'main', 
+                '[role="main"]', 
+                '.main-content', 
+                '.content', 
+                'article', 
+                '.post-content',
+                '.page-content',
+                'body'
+            ];
+            
+            var content = '';
+            for (var i = 0; i < contentSelectors.length; i++) {
+                var elements = document.querySelectorAll(contentSelectors[i]);
+                if (elements.length > 0) {
+                    var element = elements[0];
+                    var textContent = element.textContent || element.innerText || '';
+                    if (textContent.length > content.length) {
+                        content = textContent;
+                    }
+                }
+            }
+            
+            content = content.replace(/\s+/g, ' ').trim();
+            
+            var navLinks = [];
+            var linkElements = document.querySelectorAll('nav a, .nav a, .menu a, header a');
+            for (var j = 0; j < linkElements.length; j++) {
+                var link = linkElements[j];
+                if (link.href && link.textContent) {
+                    navLinks.push({
+                        text: link.textContent.trim(),
+                        url: link.href
+                    });
+                }
+            }
+            
+            websiteContent = 'Page Title: ' + title + '\n\n';
+            if (metaDescription) {
+                websiteContent += 'Description: ' + metaDescription + '\n\n';
+            }
+            websiteContent += 'Content: ' + content.substring(0, WEBSITE_CONTENT_LIMIT) + '\n\n'; // Apply limit here
+            
+            if (navLinks.length > 0) {
+                websiteContent += 'Navigation Links:\n';
+                for (var k = 0; k < navLinks.length && k < 15; k++) {
+                    websiteContent += '- ' + navLinks[k].text + ': ' + navLinks[k].url + '\n';
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error scraping website content:', error);
+            websiteContent = 'Unable to scrape website content. Please try again.';
+        }
+    }
+    
+    function sendMessage() {
+        var input = document.getElementById('chatbot-input');
+        var message = input.value.trim();
+        
+        if (!message) return;
+        
+        addMessage('user', message);
+        input.value = '';
+        
+        showTypingIndicator();
+        
+        var sendButton = document.getElementById('chatbot-send');
+        sendButton.disabled = true;
+        
+        callGeminiAPI(message); // Call the new Gemini API function
+    }
+ 
+    function callGeminiAPI(userMessage) {
+        chatHistory.push({
+            role: 'user',
+            content: userMessage
+        });
+        
+        // Gemini's way of handling system instructions: as part of the chat history
+        var messagesForGemini = [
+            {
+                role: 'user',
+                parts: [{ text: 'You are the Indegene AI Assistant, a helpful chatbot for a website. You have access to the following website content:\n\n' + websiteContent + '\n\nPlease answer user questions based on this content. If the information is not available in the content, politely say so and suggest how they might find the information. Keep responses concise and helpful. If asked about navigation, provide the available links.' }]
+            },
+            {
+                role: 'model', // This empty model turn primes the model to respond as the assistant
+                parts: [{ text: 'How can I help you today?' }] // Initial greeting to set the tone, can be empty
+            }
+        ];
+        
+        // Convert the arrow function to a traditional function expression
+        var recentHistoryForGemini = chatHistory.slice(-6).map(function(msg) {
+            return {
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            };
+        });
+        
+        messagesForGemini = messagesForGemini.concat(recentHistoryForGemini);
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', PROXY_URL, true); // Use your PROXY_URL, which is your Apps Script Web App URL
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                hideTypingIndicator();
+                
+                var sendButton = document.getElementById('chatbot-send');
+                sendButton.disabled = false;
+                
+                if (xhr.status === 200) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        var assistantMessage = 'Sorry, I could not generate a response.'; // Default message
+
+                        // This parsing remains correct because your proxy directly forwards Gemini's response
+                        if (response.candidates && response.candidates.length > 0 && 
+                            response.candidates[0].content && response.candidates[0].content.parts && 
+                            response.candidates[0].content.parts.length > 0) {
+                            assistantMessage = response.candidates[0].content.parts[0].text;
+                        } else if (response.error) {
+                            assistantMessage = 'Error from AI: ' + response.error.message;
+                            console.error('Gemini API Error Response:', response.error);
+                        }
+                        
+                        chatHistory.push({
+                            role: 'assistant',
+                            content: assistantMessage
+                        });
+                        
+                        addMessage('assistant', assistantMessage);
+                        
+                    } catch (error) {
+                        console.error('Error parsing API response:', error);
+                        addMessage('assistant', 'Sorry, I encountered an error processing your request. Please try again.');
+                    }
+                } else {
+                    console.error('API Error:', xhr.status, xhr.responseText);
+                    var errorMessage = 'Sorry, I encountered an error. Please try again.';
+                    
+                    if (xhr.status === 401) {
+                        errorMessage = 'Proxy/Authentication error. Please check your Apps Script deployment and API key.';
+                    } else if (xhr.status === 429) {
+                        errorMessage = 'Too many requests. Please try again in a moment.';
+                    } else {
+                        try {
+                            var errorResponse = JSON.parse(xhr.responseText);
+                            if (errorResponse.error && errorResponse.error.message) {
+                                errorMessage = 'Proxy Error: ' + errorResponse.error.message;
+                            }
+                        } catch (e) {
+                            // ignore, use generic message
+                        }
+                    }
+                    
+                    addMessage('assistant', errorMessage);
+                }
+            }
+        };
+        
+        var requestData = {
+            contents: messagesForGemini,
+            safetySettings: [
+                {
+                    category: 'HARM_CATEGORY_HARASSMENT',
+                    threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                },
+                {
+                    category: 'HARM_CATEGORY_HATE_SPEECH',
+                    threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                },
+                {
+                    category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                    threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                },
+                {
+                    category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                    threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+                }
+            ],
+            generationConfig: {
+                maxOutputTokens: 500,
+                temperature: 0.7,
+                topP: 0.9,
+                topK: 40
+            }
+        };
+        
+        xhr.send(JSON.stringify(requestData));
+    }
+    
+    function addMessage(type, content) {
+        var messagesContainer = document.getElementById('chatbot-messages');
+        var messageDiv = document.createElement('div');
+        messageDiv.className = 'message ' + type;
+        
+        var isUser = type === 'user';
+        var messageStyle = [
+            'background: ' + (isUser ? '#667eea' : 'white') + ';',
+            'color: ' + (isUser ? 'white' : '#333') + ';',
+            'padding: 10px 12px;',
+            'border-radius: 12px;',
+            'max-width: 80%;',
+            'margin-bottom: 10px;',
+            'margin-left: ' + (isUser ? 'auto' : '0') + ';',
+            'margin-right: ' + (isUser ? '0' : 'auto') + ';',
+            'box-shadow: 0 1px 3px rgba(0,0,0,0.1);',
+            'font-size: 14px;',
+            'line-height: 1.4;',
+            'word-wrap: break-word;'
+        ].join('');
+        
+        messageDiv.innerHTML = '<div style="' + messageStyle + '">' + content + '</div>';
+        messagesContainer.appendChild(messageDiv);
+        
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function showTypingIndicator() {
+        var messagesContainer = document.getElementById('chatbot-messages');
+        var typingDiv = document.createElement('div');
+        typingDiv.id = 'typing-indicator';
+        typingDiv.className = 'message assistant';
+        
+        var typingStyle = [
+            'background: white;',
+            'padding: 10px 12px;',
+            'border-radius: 12px;',
+            'max-width: 80%;',
+            'margin-bottom: 10px;',
+            'box-shadow: 0 1px 3px rgba(0,0,0,0.1);',
+            'font-size: 14px;',
+            'color: #666;',
+            'font-style: italic;'
+        ].join('');
+        
+        typingDiv.innerHTML = '<div style="' + typingStyle + '">AI is thinking...</div>';
+        messagesContainer.appendChild(typingDiv);
+        
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function hideTypingIndicator() {
+        var typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+    
+})();
+  </script> 
+    
         <script type='text/javascript' 
                 src='https://indegenehcosp.my.site.com/ESWWebAgent1744953919968/assets/js/bootstrap.min.js' 
                 onload='initEmbeddedMessaging()'></script>
