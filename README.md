@@ -339,7 +339,76 @@
             font-weight: bold;
         }
     </style>
-    
+    <script>
+    // Replace your existing API call with this function
+async function sendMessage(userMessage) {
+  try {
+    const response = await fetch('/.netlify/functions/gemini-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: userMessage
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+   
+    // Extract the response text from Gemini's response structure
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      return data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error('Invalid response structure from Gemini');
+    }
+
+  } catch (error) {
+    console.error('Error calling Gemini API:', error);
+    return 'Sorry, there was an error processing your request.';
+  }
+}
+
+// Example usage in your chatbot
+async function handleUserInput() {
+  const userInput = document.getElementById('user-input').value;
+  if (!userInput.trim()) return;
+
+  // Display user message
+  displayMessage(userInput, 'user');
+ 
+  // Clear input
+  document.getElementById('user-input').value = '';
+ 
+  // Show loading
+  displayMessage('Thinking...', 'bot', true);
+ 
+  // Get AI response
+  const aiResponse = await sendMessage(userInput);
+ 
+  // Remove loading and show actual response
+  removeLastMessage(); // Remove "Thinking..." message
+  displayMessage(aiResponse, 'bot');
+}
+
+function displayMessage(message, sender, isTemporary = false) {
+  const chatMessages = document.getElementById('chat-messages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `message ${sender}-message`;
+  if (isTemporary) messageDiv.id = 'temp-message';
+  messageDiv.textContent = message;
+  chatMessages.appendChild(messageDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeLastMessage() {
+  const tempMessage = document.getElementById('temp-message');
+  if (tempMessage) tempMessage.remove();
+}
+    </script>
     <!-- Analytics and Tracking Scripts -->
     <!-- Salesforce CDP -->
     <script type="text/javascript" src="//cdn.c360a.salesforce.com/beacon/c360a/a7151dc3-085e-47af-9b19-3ba7d7e157e9/scripts/c360a.min.js"></script>
